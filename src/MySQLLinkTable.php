@@ -53,14 +53,15 @@
          */
         public function linkExists($a_hash)
         {
-            $query = "SELECT ? FROM ? WHERE ?=? LIMIT 1";
+            //sprintf template
+            $query = "SELECT 1 FROM `%s` WHERE `%s` = ? LIMIT 1";
 
+            //add the column and table names in via sprintf
+            $query = sprintf($query, $this->m_tableName, $this->m_hashKeyFieldName);
+
+            //execute query
             $this->m_pdo->chooseConnection($this->m_connectionName);
-            $result = $this->m_pdo->select($query,
-                $this->m_hashKeyFieldName,
-                $this->m_tableName,
-                $this->m_hashKeyFieldName, $a_hash
-            );
+            $result = $this->m_pdo->select($query, $a_hash);
 
             if (is_array($result) && !empty($result))
             {
@@ -78,11 +79,12 @@
          */
         public function clearLink($a_hash)
         {
-            $query = "DELETE FROM ? WHERE ?=?";
-            $result = $this->m_pdo->execute($query,
-                $this->m_tableName,
-                $this->m_hashKeyFieldName, $a_hash
-            );
+            //sprintf template
+            $query = "DELETE FROM `%s` WHERE `%s` = ?";
+
+            //add column and table names in via sprintf
+            $query = sprintf($query, $this->m_tableName, $this->m_hashKeyFieldName);
+            $result = $this->m_pdo->execute($query, $a_hash);
             
             //error returns negative int
             if (is_int($result) && $result < 0)
@@ -101,10 +103,12 @@
          */
         public function saveLink($a_link)
         {
-            $query = "INSERT INTO ? (";
-            $questionMarks = "?,?,?";
-            $columnArgs = array($this->m_hashKeyFieldName, $this->m_loadDateFieldName, $this->m_sourceFieldName);
-            $valueArgs = array($a_link->getHashKey(), date("Y-m-d"), $a_link->getSource());
+            $query = "INSERT INTO `" . $this->m_tableName . "` (";
+            $query .= "`" . $this->m_hashKeyFieldName . "`,`" . $this->m_loadDateFieldName . "`,`" . $this->m_sourceFieldName . "`";
+            $questionMarks = "? AS `" . $this->m_hashKeyFieldName . "`,? AS `" . $this->m_loadDateFieldName . "`,? AS `" . $this->m_sourceFieldName . "`";
+
+            //array of args to pass to PDO execute
+            $args = array($a_link->getHashKey(), date("Y-m-d H:i:s"), $a_link->getSource());
 
             //get links and set all field keys to lowercase
             $links = array_change_key_case($a_link->getLinks());
@@ -115,28 +119,25 @@
                 //if the link has the field set
                 if (isset($links[$field]))
                 {
-                    //add the question mark to the query
-                    $questionMarks .= ",?";
+                    //add the question mark
+                    $questionMarks .= ",? AS `" . $column . "`";
 
                     //add the column to the query
-                    array_push($columnArgs, $column);
+                    $query .= ",`" . $column . "`";
 
                     //add the value to the query
-                    array_push($valueArgs, $links[$field]);
+                    array_push($args, $links[$field]);
                 }
             }
 
-            $query .= $questionMarks . ") SELECT * FROM (SELECT " . $questionMarks . ") AS tmp ";
-            $query .= "WHERE NOT EXISTS (SELECT 1 FROM ? WHERE ?=?) LIMIT 1";
-
-            //merge the column and value args, preparing to call pdo select
-            $args = array_merge($columnArgs, $valueArgs);
+            $query .= ") SELECT * FROM (SELECT " . $questionMarks . ") AS tmp ";
+            $query .= "WHERE NOT EXISTS (SELECT 1 FROM `" . $this->m_tableName . "` WHERE `" . $this->m_hashKeyFieldName . "`=? LIMIT 1) LIMIT 1";
             
-            //add the table name and query to the beginning of the argument list
-            array_unshift($args, $query, $this->m_tableName);
+            //add the query to the beginning of the argument list
+            array_unshift($args, $query);
 
-            //add the where not exists fields and variables to the argument list
-            array_push($args, $this->m_tableName, $this->m_hashKeyFieldName, $a_link->getHashKey());
+            //add the where not exists clause value to the argument list
+            array_push($args, $a_link->getHashKey());
 
             $this->m_pdo->chooseConnection($this->m_connectionName);
             $result = call_user_func_array(array($this->m_pdo, "execute"), $args);
@@ -158,22 +159,18 @@
          */
         public function getLink($a_hash)
         {
-            $query = "SELECT ";
-            $columns = "?,?,?";
-            $args = array($this->m_sourceFieldName, $this->m_loadDateFieldName, $this->m_hashKeyFieldName);
+            $query = "SELECT `" . $this->m_sourceFieldName . "`,`" . $this->m_loadDateFieldName . "`,`" . $this->m_hashKeyFieldName . "`";
+            $args = array();
             
             foreach ($this->m_fieldMap as $field => $column)
             {
-                $columns .= ",?";
-                array_push($args, $column);
+                $query .= ",`" . $column . "`";
             }
 
-            $query .= $columns . " FROM ? WHERE ?=?";
-            array_push($args, $this->m_tableName, $this->m_hashKeyFieldName, $a_hash);
-            array_unshift($args, $query);
+            $query .= " FROM `" . $this->m_tableName . "` WHERE `" . $this->m_hashKeyFieldName . "`=? LIMIT 1";
 
             $this->m_pdo->chooseConnection($this->m_connectionName);
-            $result = call_user_func_array(array($this->m_pdo, "select"), $args);
+            $result = $this->m_pdo->select($query, $a_hash);
 
             //if result is negative int, an error occurred
             if (is_int($result) && $result < 0)

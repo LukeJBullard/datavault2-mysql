@@ -59,11 +59,11 @@
 
             if ($a_hubHash == "")
             {
-                $query = "SELECT ? FROM ? WHERE ?=? LIMIT 1";
-                $result = $this->m_pdo->select($query, $this->m_hashDiffFieldName, $this->m_tableName, $this->m_hashDiffFieldName, $a_hashDiff);
+                $query = "SELECT 1 FROM `" . $this->m_tableName . "` WHERE `" . $this->m_hashDiffFieldName . "`=? LIMIT 1";
+                $result = $this->m_pdo->select($query, $a_hashDiff);
             } else {
-                $query = "SELECT ? FROM ? WHERE ?=? AND ?=? LIMIT 1";
-                $result = $this->m_pdo->select($query, $this->m_hashDiffFieldName, $this->m_tableName, $this->m_hashDiffFieldName, $a_hashDiff, $this->m_hubHashFieldName, $a_hubHash);
+                $query = "SELECT 1 FROM `" . $this->m_tableName . "` WHERE `" . $this->m_hashDiffFieldName . "`=? AND `" . $this->m_hubHashFieldName . "`=? LIMIT 1";
+                $result = $this->m_pdo->select($query, $a_hashDiff, $a_hubHash);
             }
 
             return (is_array($result) && !empty($result));
@@ -77,25 +77,22 @@
          */
         public function getSatellite($a_hashDiff, $a_hubHash="")
         {
-            $query = "SELECT ?,?,?";
-            $questionMarks = "";
-            $args = array($this->m_sourceFieldName, $this->m_loadDateFieldName, $this->m_hubHashFieldName);
+            $query = "SELECT `" . $this->m_sourceFieldName . "`,`" . $this->m_loadDateFieldName . "`,`" . $this->m_hubHashFieldName . "`";
 
             //go through each satellite data field and add it to the query
             foreach ($this->m_fieldMap as $field => $column)
             {
-                $questionMarks .= ",?";
-                array_push($args, $column);
+                $query .= ",`" . $column . "`";
             }
 
-            $query .= $questionMarks . " FROM ? WHERE ?=?";
-            array_push($args, $this->m_tableName, $this->m_hashDiffFieldName, $a_hashDiff);
+            $query .= " FROM `" . $this->m_tableName . "` WHERE `" . $this->m_hashDiffFieldName . "`=?";
+            $args = array($a_hashDiff);
 
             //add the hub hash to the where clause if specified
             if ($a_hubHash != "")
             {
-                $query .= " AND ?=?";
-                array_push($args, $this->m_hubHashFieldName, $a_hubHash);
+                $query .= " AND `" . $this->m_hubHashFieldName . "`=?";
+                array_push($args, $a_hubHash);
             }
 
             $query .= " LIMIT 1";
@@ -167,14 +164,14 @@
          */
         public function clearSatellite($a_hashDiff, $a_hubHash="")
         {
-            $query = "DELETE FROM ? WHERE ?=?";
-            $args = array($this->m_tableName, $this->m_hashDiffFieldName, $a_hashDiff);
+            $query = "DELETE FROM `" . $this->m_tableName . "` WHERE `" . $this->m_hashDiffFieldName . "`=?";
+            $args = array($a_hashDiff);
 
             //add the hubhash to the where clause if specified
             if ($a_hubHash != "")
             {
-                $query .= " AND ?=?";
-                array_push($args, $this->m_hubHashFieldName, $a_hubHash);
+                $query .= " AND `" . $this->m_hubHashFieldName . "`=?";
+                array_push($args, $a_hubHash);
             }
 
             //add the query to the front of the args array, preparing it to be executed
@@ -201,10 +198,9 @@
          */
         public function saveSatellite($a_satellite)
         {
-            $query = "INSERT INTO ? (";
-            $questionMarks = "?,?,?,?";
-            $columnArgs = array($this->m_hashDiffFieldName, $this->m_hubHashFieldName, $this->m_sourceFieldName, $this->m_dateFieldName);
-            $valueArgs = array($a_satellite->getHashDiff(), $a_satellite->getHubHash(), $a_satellite->getSource(), date("Y-m-d"));
+            $query = "INSERT INTO `" . $this->m_tableName . "` (`" . $this->m_hashDiffFieldName . "`,`" . $this->m_hubHashFieldName . "`,`" . $this->m_sourceFieldName . "`,`" . $this->m_dateFieldName . "`";
+            $args = array($a_satellite->getHashDiff(), $a_satellite->getHubHash(), $a_satellite->getSource(), date("Y-m-d H:i:s"));
+            $questionMarks = "? AS `" . $this->m_hashDiffFieldName . "`,? AS `" . $this->m_hubHashFieldName . "`,? AS `" . $this->m_sourceFieldName . "`,? AS `" . $this->m_dateFieldName . "`";
 
             $data = array_change_key_case($a_satellite->getData());
 
@@ -217,20 +213,19 @@
                     continue;
                 }
 
-                $questionMarks .= ",?";
-                array_push($columnArgs, $column);
-                array_push($valueArgs, $data[$field]);
+                $questionMarks .= ",? AS `" . $column . "`";
+                $query .= ",`" . $column . "`";
+                array_push($args, $data[$field]);
             }
 
-            $query .= $questionMarks . ") SELECT * FROM (SELECT " . $questionMarks . ") AS tmp ";
-            $query .= "WHERE NOT EXISTS (SELECT 1 FROM ? WHERE ?=? AND ?=?) LIMIT 1";
+            $query .= ") SELECT * FROM (SELECT " . $questionMarks . ") AS tmp ";
+            $query .= "WHERE NOT EXISTS (SELECT 1 FROM `" . $this->m_tableName . "` WHERE `" . $this->m_hashDiffFieldName . "`=? AND `" . $this->m_hubHashFieldName . "`=? LIMIT 1) LIMIT 1";
 
-            //merge the column and value arg arrays and prepend the query and table name to the result, to create the arg array to pass to pdo->execute
-            $args = array_merge($columnArgs, $valueArgs);
-            array_unshift($args, $query, $this->m_tableName);
+            //prepend the query to the args
+            array_unshift($args, $query);
 
-            //add the where not exists values and fields to the argument list
-            array_push($args, $this->m_tableName, $this->m_hashDiffFieldName, $a_satellite->getHashDiff(), $this->m_hubHashFieldName, $a_satellite->getHubHash());
+            //add the where not exists values to the argument list
+            array_push($args, $a_satellite->getHashDiff(), $a_satellite->getHubHash());
 
             $this->m_pdo->chooseConnection($this->m_connectionName);
             $result = call_user_func_array(array($this->m_pdo, "execute"), $args);
