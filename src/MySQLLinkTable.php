@@ -104,11 +104,11 @@
         public function saveLink($a_link)
         {
             $query = "INSERT INTO `" . $this->m_tableName . "` (";
-            $query .= "`" . $this->m_hashKeyFieldName . "`,`" . $this->m_loadDateFieldName . "`,`" . $this->m_sourceFieldName . "`";
-            $questionMarks = "? AS `" . $this->m_hashKeyFieldName . "`,? AS `" . $this->m_loadDateFieldName . "`,? AS `" . $this->m_sourceFieldName . "`";
+            $query .= "`" . $this->m_hashKeyFieldName . "`,`" . $this->m_sourceFieldName . "`";
+            $questionMarks = "? AS `" . $this->m_hashKeyFieldName . "`,? AS `" . $this->m_sourceFieldName . "`";
 
             //array of args to pass to PDO execute
-            $args = array($a_link->getHashKey(), date("Y-m-d H:i:s"), $a_link->getSource());
+            $args = array($a_link->getHashKey(), $a_link->getSource());
 
             //get links and set all field keys to lowercase
             $links = array_change_key_case($a_link->getLinks());

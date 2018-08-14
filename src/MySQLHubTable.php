@@ -51,8 +51,8 @@
             //sprintf template string
             $query="INSERT
                     INTO `%s`
-                    (`%s`, `%s`, `%s`, `%s`)
-                    SELECT * FROM (SELECT ? AS `%s`, ? AS `%s`, ? AS `%s`, ? AS `%s`) AS tmp
+                    (`%s`, `%s`, `%s`)
+                    SELECT * FROM (SELECT ? AS `%s`, ? AS `%s`, ? AS `%s`) AS tmp
                     
                     WHERE NOT EXISTS (
                         SELECT 1 FROM `%s` WHERE `%s` = ? LIMIT 1
@@ -62,15 +62,15 @@
             //add column and table names in via sprintf
             $query = sprintf($query,
                 $this->m_tableName,
-                $this->m_dataFieldName, $this->m_sourceFieldName, $this->m_loadDateFieldName, $this->m_hashKeyFieldName,
-                $this->m_dataFieldName, $this->m_sourceFieldName, $this->m_loadDateFieldName, $this->m_hashKeyFieldName,
+                $this->m_dataFieldName, $this->m_sourceFieldName,$this->m_hashKeyFieldName,
+                $this->m_dataFieldName, $this->m_sourceFieldName, $this->m_hashKeyFieldName,
                 $this->m_tableName, $this->m_hashKeyFieldName
             );
 
             //execute query
             $this->m_pdo->chooseConnection($this->m_connectionName);
             $result = $this->m_pdo->execute($query,
-                $a_hub->getData(), $a_hub->getSource(), date("Y-m-d H:i:s"), $a_hub->getHashKey(),
+                $a_hub->getData(), $a_hub->getSource(), $a_hub->getHashKey(),
                 $a_hub->getHashKey()
             );
 

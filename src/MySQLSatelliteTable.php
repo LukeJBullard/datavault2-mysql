@@ -198,9 +198,9 @@
          */
         public function saveSatellite($a_satellite)
         {
-            $query = "INSERT INTO `" . $this->m_tableName . "` (`" . $this->m_hashDiffFieldName . "`,`" . $this->m_hubHashFieldName . "`,`" . $this->m_sourceFieldName . "`,`" . $this->m_dateFieldName . "`";
-            $args = array($a_satellite->getHashDiff(), $a_satellite->getHubHash(), $a_satellite->getSource(), date("Y-m-d H:i:s"));
-            $questionMarks = "? AS `" . $this->m_hashDiffFieldName . "`,? AS `" . $this->m_hubHashFieldName . "`,? AS `" . $this->m_sourceFieldName . "`,? AS `" . $this->m_dateFieldName . "`";
+            $query = "INSERT INTO `" . $this->m_tableName . "` (`" . $this->m_hashDiffFieldName . "`,`" . $this->m_hubHashFieldName . "`,`" . $this->m_sourceFieldName . "`";
+            $args = array($a_satellite->getHashDiff(), $a_satellite->getHubHash(), $a_satellite->getSource());
+            $questionMarks = "? AS `" . $this->m_hashDiffFieldName . "`,? AS `" . $this->m_hubHashFieldName . "`,? AS `" . $this->m_sourceFieldName . "`";
 
             $data = array_change_key_case($a_satellite->getData());
 
