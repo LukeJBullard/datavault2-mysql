@@ -70,6 +70,34 @@
         }
 
         /**
+         * Returns if the specified hash_diff exists and is the latest in the Table for the hub_hash
+         * 
+         * @param String $a_hashDiff The Hash Diff of the Satellite.
+         * @param String $a_hubHash The Hash of the Hub the Satellite is under.
+         * @return Boolean If the Satellite exists and is the latest satellite for the hub
+         */
+        public function existsAndIsLatest($a_hashDiff, $a_hubHash)
+        {
+            $this->m_pdo->chooseConnection($this->m_connectionName);
+
+            $loadDateQuery = "SELECT MAX(`" . $this->m_dateFieldName . "`) AS `max_date` FROM `" . $this->m_tableName . "` WHERE `" . $this->m_hubHashFieldName . "`=? LIMIT 1";
+            $loadDateResult = $this->m_pdo->select($loadDateQuery, $a_hubHash);
+
+            if (is_array($loadDateResult) && !empty($loadDateResult))
+            {
+                $lastHashQuery = "SELECT `" . $this->m_hashDiffFieldName . "` AS `hash_diff_field` FROM `" . $this->m_tableName . "` WHERE `" . $this->m_hubHashFieldName . "`=? AND `" . $this->m_dateFieldName . "`=? LIMIT 1";
+                $lastHashResult = $this->m_pdo->select($lastHashQuery, $a_hubHash, $loadDateResult[0]['max_date']);
+                
+                if (is_array($lastHashResult) && !empty($lastHashResult) && $lastHashResult[0]['hash_diff_field'] == $a_hashDiff)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /**
          * Retrieves a Satellite from the Table
          * @param String $a_hashDiff The Hash Diff of the Satellite to retrieve
          * @param String $a_hubHash The Hash of the Hub the Satellite is under (Optional- if omitted, will return the first Satellite with the hash diff)
@@ -219,13 +247,22 @@
             }
 
             $query .= ") SELECT * FROM (SELECT " . $questionMarks . ") AS tmp ";
-            $query .= "WHERE NOT EXISTS (SELECT 1 FROM `" . $this->m_tableName . "` WHERE `" . $this->m_hashDiffFieldName . "`=? AND `" . $this->m_hubHashFieldName . "`=? LIMIT 1) LIMIT 1";
+            $query .= "WHERE
+                IFNULL(
+                    (SELECT `" . $this->m_hashDiffFieldName . "`
+                    FROM `" . $this->m_tableName . "`
+                    WHERE `" . $this->m_hubHashFieldName . "`=?
+                        AND `" . $this->m_dateFieldName . "`=(
+                            SELECT MAX(`" . $this->m_dateFieldName . "`) FROM `" . $this->m_tableName . "` WHERE `" . $this->m_hubHashFieldName . "`=?
+                        )
+                    ),
+                '') != ? LIMIT 1";
 
             //prepend the query to the args
             array_unshift($args, $query);
 
-            //add the where not exists values to the argument list
-            array_push($args, $a_satellite->getHashDiff(), $a_satellite->getHubHash());
+            //add the where clause values to the argument list
+            array_push($args,  $a_satellite->getHubHash(), $a_satellite->getHubHash(), $a_satellite->getHashDiff());
 
             $this->m_pdo->chooseConnection($this->m_connectionName);
             $result = call_user_func_array(array($this->m_pdo, "execute"), $args);
